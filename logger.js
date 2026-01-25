@@ -3,19 +3,58 @@ import axios from "axios";
 const ENTRIES_WEBHOOK = process.env.DISCORD_ENTRIES_WEBHOOK;
 
 /**
+ * Normaliza erro em categoria legível
+ */
+function formatFailure(message = "") {
+  const msg = message.toLowerCase();
+
+  if (msg.includes("telegram")) {
+    return "❌ Telegram not connected";
+  }
+  if (msg.includes("discord")) {
+    return "❌ Discord requirement(s)";
+  }
+  if (msg.includes("429") || msg.includes("rate")) {
+    return "⏱️ Rate limited";
+  }
+  if (msg.includes("timeout")) {
+    return "⌛ Request timeout";
+  }
+  if (msg.includes("ended")) {
+    return "🚫 Opportunity ended";
+  }
+
+  return `❌ ${message || "Entry failed"}`;
+}
+
+/**
  * Embed de entrada (sucesso ou falha)
  */
 export async function sendEntryEmbed({
   username,
   userId,
   userAvatar,
+
   raffleName,
   raffleSlug,
+
   giveawaysJoined,
   success = true,
-  message = "Entry successful"
+  message
 }) {
   if (!ENTRIES_WEBHOOK) return;
+
+  // fallback de segurança
+  const safeRaffleName = raffleName || "Unknown Raffle";
+  const safeSlug = raffleSlug || "";
+
+  const raffleUrl = safeSlug
+    ? `https://www.alphabot.app/${safeSlug}`
+    : "https://www.alphabot.app/raffles";
+
+  const statusText = success
+    ? "✅ Entry successful"
+    : formatFailure(message);
 
   try {
     await axios.post(ENTRIES_WEBHOOK, {
@@ -25,12 +64,12 @@ export async function sendEntryEmbed({
       embeds: [
         {
           author: {
-            name: username,
+            name: username || "Unknown User",
             icon_url: userAvatar
           },
 
-          title: `You Joined: ${raffleName}`,
-          url: `https://www.alphabot.app/${raffleSlug}`,
+          title: `You Joined: ${safeRaffleName}`,
+          url: raffleUrl,
 
           color: success ? 0x7C3AED : 0xEF4444,
 
@@ -55,8 +94,8 @@ export async function sendEntryEmbed({
               inline: true
             },
             {
-              name: success ? "✅ Status" : "❌ Status",
-              value: message,
+              name: success ? "✅ Status" : "❌ Failure Reason",
+              value: statusText,
               inline: false
             }
           ],
@@ -75,14 +114,14 @@ export async function sendEntryEmbed({
 }
 
 /**
- * Embed de snapshot (quando o scan inicia)
+ * Embed de snapshot (scan)
  */
 export async function sendSnapshotEmbed(totalRaffles) {
   if (!ENTRIES_WEBHOOK) return;
 
   try {
     await axios.post(ENTRIES_WEBHOOK, {
-      username: "CATBOTP",
+      username: "CATBOT",
       avatar_url: "https://i.imgur.com/yxvI3zp.png",
 
       embeds: [
