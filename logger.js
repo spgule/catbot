@@ -74,7 +74,7 @@ export async function sendEntryEmbed({
             icon_url: userAvatar
           },
 
-          title: `You Joined: ${finalName}`,
+          title: `${finalName}`,
           url: raffleUrl,
 
           color: success ? 0x7C3AED : 0xEF4444,
