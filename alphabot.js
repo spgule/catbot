@@ -7,11 +7,11 @@ const API_BASE = "https://api.alphabot.app/v1";
 
 // timing
 const ENTER_DELAY_MS = 7000;          // 7s entre entries
-const PAGE_DELAY_MS = 1500;           // 1.5s entre páginas (anti 429)
+const PAGE_DELAY_MS = 1500;           // 1.5s entre páginas
 const RECENT_WINDOW_MS = 10 * 60 * 1000;
 
 // pagination
-const PAGE_SIZE = 100;                // 100 por página (máximo permitido)
+const PAGE_SIZE = 100;
 
 /* =========================
    STATE
@@ -33,7 +33,9 @@ function authHeaders(apiKey) {
 }
 
 function markTried(userId, slug) {
-  if (!recentlyTried.has(userId)) recentlyTried.set(userId, new Map());
+  if (!recentlyTried.has(userId)) {
+    recentlyTried.set(userId, new Map());
+  }
   recentlyTried.get(userId).set(slug, Date.now());
 }
 
@@ -41,6 +43,10 @@ function wasRecentlyTried(userId, slug) {
   const last = recentlyTried.get(userId)?.get(slug);
   return last && Date.now() - last < RECENT_WINDOW_MS;
 }
+
+/* =========================
+   API
+========================= */
 
 async function apiGetAllRaffles(apiKey) {
   const all = [];
@@ -68,7 +74,6 @@ async function apiGetAllRaffles(apiKey) {
 
     all.push(...raffles);
 
-    // se veio menos que PAGE_SIZE, acabou
     if (raffles.length < PAGE_SIZE) break;
 
     pageNum++;
@@ -87,7 +92,7 @@ async function apiRegister(apiKey, slug) {
 }
 
 /* =========================
-   ENTRY (VALIDAÇÃO CORRETA)
+   ENTRY
 ========================= */
 
 async function tryEnter(user, slug) {
@@ -106,21 +111,25 @@ async function tryEnter(user, slug) {
     const body = res?.data;
     const validation = body?.data?.validation;
 
-    // ✅ sucesso REAL
+    // ✅ sucesso real
     if (body?.success === true && validation?.success === true) {
       bumpEntered(user.id, 1);
       markTried(user.id, slug);
 
       await sendEntryEmbed({
         userId: user.id,
-        slug,
+        username: user.username || "Unknown User",
+        userAvatar: user.avatar || null,
+        raffleSlug: slug,
+        giveawaysJoined: user.entered + 1,
         success: true,
         message: "Entry confirmed",
       });
+
       return;
     }
 
-    // ❌ falha lógica (já registrado, requisitos, etc)
+    // ❌ falha lógica
     const reason =
       validation?.reason ||
       body?.data?.resultMd ||
@@ -130,7 +139,10 @@ async function tryEnter(user, slug) {
 
     await sendEntryEmbed({
       userId: user.id,
-      slug,
+      username: user.username || "Unknown User",
+      userAvatar: user.avatar || null,
+      raffleSlug: slug,
+      giveawaysJoined: user.entered,
       success: false,
       message: reason,
     });
@@ -142,7 +154,10 @@ async function tryEnter(user, slug) {
 
     await sendEntryEmbed({
       userId: user.id,
-      slug,
+      username: user.username || "Unknown User",
+      userAvatar: user.avatar || null,
+      raffleSlug: slug,
+      giveawaysJoined: user.entered,
       success: false,
       message: msg,
     });
@@ -150,7 +165,7 @@ async function tryEnter(user, slug) {
 }
 
 /* =========================
-   SNAPSHOT LOOP (SEM TIMER)
+   SNAPSHOT LOOP
 ========================= */
 
 export async function runSnapshotCycle() {
