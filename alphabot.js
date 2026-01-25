@@ -1,219 +1,144 @@
 import axios from "axios";
-import { getAutoUsers, bumpEntered } from "./db.js";
-import { decrypt } from "./crypto.js";
-import { sendEntryEmbed, sendSnapshotEmbed } from "./logger.js";
 
-const API_BASE = "https://api.alphabot.app/v1";
+const ENTRIES_WEBHOOK = process.env.DISCORD_ENTRIES_WEBHOOK;
 
-// timing
-const ENTER_DELAY_MS = 7000;          // 7s entre entries
-const PAGE_DELAY_MS = 1500;           // 1.5s entre páginas (anti 429)
-const RECENT_WINDOW_MS = 10 * 60 * 1000;
+/**
+ * Normaliza erro em categoria legível
+ */
+function formatFailure(message = "") {
+  const msg = message.toLowerCase();
 
-// pagination
-const PAGE_SIZE = 100;                // 100 por página (máximo permitido)
+  if (msg.includes("telegram")) {
+    return "❌ Telegram not connected";
+  }
+  if (msg.includes("discord")) {
+    return "❌ Discord requirement(s)";
+  }
+  if (msg.includes("429") || msg.includes("rate")) {
+    return "⏱️ Rate limited";
+  }
+  if (msg.includes("timeout")) {
+    return "⌛ Request timeout";
+  }
+  if (msg.includes("ended")) {
+    return "🚫 Opportunity ended";
+  }
 
-/* =========================
-   STATE
-========================= */
-
-let snapshotRunning = false;
-const recentlyTried = new Map(); // userId -> Map(slug -> ts)
-
-/* =========================
-   HELPERS
-========================= */
-
-function authHeaders(apiKey) {
-  return {
-    Authorization: `Bearer ${apiKey}`,
-    "Content-Type": "application/json",
-    Accept: "application/json",
-  };
+  return `❌ ${message || "Entry failed"}`;
 }
 
-function markTried(userId, slug) {
-  if (!recentlyTried.has(userId)) recentlyTried.set(userId, new Map());
-  recentlyTried.get(userId).set(slug, Date.now());
-}
+/**
+ * Embed de entrada (sucesso ou falha)
+ */
+export async function sendEntryEmbed({
+  username,
+  userId,
+  userAvatar,
 
-function wasRecentlyTried(userId, slug) {
-  const last = recentlyTried.get(userId)?.get(slug);
-  return last && Date.now() - last < RECENT_WINDOW_MS;
-}
+  raffleName,
+  raffleSlug,
 
-async function apiGetAllRaffles(apiKey) {
-  const all = [];
-  let pageNum = 0;
+  giveawaysJoined,
+  success = true,
+  message
+}) {
+  if (!ENTRIES_WEBHOOK) return;
 
-  while (true) {
-    console.log(`[SNAPSHOT] fetching page ${pageNum}`);
+  // fallback de segurança
+  const safeRaffleName = raffleName || "Unknown Raffle";
+  const safeSlug = raffleSlug || "";
 
-    const res = await axios.get(`${API_BASE}/raffles`, {
-      headers: authHeaders(apiKey),
-      params: {
-        filter: "unregistered",
-        status: "active",
-        sort: "newest",
-        pageSize: PAGE_SIZE,
-        pageNum,
-      },
-      timeout: 20000,
+  const raffleUrl = safeSlug
+    ? `https://www.alphabot.app/${safeSlug}`
+    : "https://www.alphabot.app/raffles";
+
+  const statusText = success
+    ? "✅ Entry successful"
+    : formatFailure(message);
+
+  try {
+    await axios.post(ENTRIES_WEBHOOK, {
+      username: "CATBOT",
+      avatar_url: "https://i.imgur.com/yxvI3zp.png",
+
+      embeds: [
+        {
+          author: {
+            name: username || "Unknown User",
+            icon_url: userAvatar
+          },
+
+          title: `You Joined: ${safeRaffleName}`,
+          url: raffleUrl,
+
+          color: success ? 0x7C3AED : 0xEF4444,
+
+          thumbnail: {
+            url: "https://i.imgur.com/yxvI3zp.png"
+          },
+
+          fields: [
+            {
+              name: "User",
+              value: `<@${userId}>`,
+              inline: true
+            },
+            {
+              name: "Giveaways Joined",
+              value: String(giveawaysJoined ?? "—"),
+              inline: true
+            },
+            {
+              name: "Subscription",
+              value: "<@&1464927696403431635>",
+              inline: true
+            },
+            {
+              name: success ? "✅ Status" : "❌ Failure Reason",
+              value: statusText,
+              inline: false
+            }
+          ],
+
+          footer: {
+            text: "Built by CATBOT"
+          },
+
+          timestamp: new Date().toISOString()
+        }
+      ]
     });
-
-    const raffles = res?.data?.data?.raffles || [];
-    console.log(`[SNAPSHOT] page ${pageNum} -> ${raffles.length} raffles`);
-
-    if (!raffles.length) break;
-
-    all.push(...raffles);
-
-    // se veio menos que PAGE_SIZE, acabou
-    if (raffles.length < PAGE_SIZE) break;
-
-    pageNum++;
-    await new Promise(r => setTimeout(r, PAGE_DELAY_MS));
+  } catch (err) {
+    console.error("Webhook sendEntryEmbed error:", err.message);
   }
-
-  return all;
 }
 
-async function apiRegister(apiKey, slug) {
-  return axios.post(
-    `${API_BASE}/register`,
-    { slug },
-    { headers: authHeaders(apiKey), timeout: 20000 }
-  );
-}
-
-/* =========================
-   ENTRY (VALIDAÇÃO CORRETA)
-========================= */
-
-async function tryEnter(user, slug) {
-  if (wasRecentlyTried(user.id, slug)) return;
-
-  let apiKey;
-  try {
-    apiKey = decrypt(user.apiKey);
-  } catch {
-    console.log(`[ENTRY] decrypt failed for ${user.id}`);
-    return;
-  }
+/**
+ * Embed de snapshot (scan)
+ */
+export async function sendSnapshotEmbed(totalRaffles) {
+  if (!ENTRIES_WEBHOOK) return;
 
   try {
-    const res = await apiRegister(apiKey, slug);
-    const body = res?.data;
-    const validation = body?.data?.validation;
+    await axios.post(ENTRIES_WEBHOOK, {
+      username: "CATBOT",
+      avatar_url: "https://i.imgur.com/yxvI3zp.png",
 
-    // ✅ sucesso REAL
-    if (body?.success === true && validation?.success === true) {
-      bumpEntered(user.id, 1);
-      markTried(user.id, slug);
+      embeds: [
+        {
+          title: "📸 Snapshot iniciado",
+          description: `Raffles capturadas: **${totalRaffles}**`,
+          color: 0x3498DB,
 
-      await sendEntryEmbed({
-        userId: user.id,
-        slug,
-        success: true,
-        message: "Entry confirmed",
-      });
-      return;
-    }
+          footer: {
+            text: "CatBot • Snapshot"
+          },
 
-    // ❌ falha lógica (já registrado, requisitos, etc)
-    const reason =
-      validation?.reason ||
-      body?.data?.resultMd ||
-      "Entry not accepted";
-
-    markTried(user.id, slug);
-
-    await sendEntryEmbed({
-      userId: user.id,
-      slug,
-      success: false,
-      message: reason,
+          timestamp: new Date().toISOString()
+        }
+      ]
     });
-  } catch (e) {
-    const msg =
-      e?.response?.data?.errors?.[0]?.message ||
-      e?.response?.data?.message ||
-      `HTTP ${e?.response?.status || "error"}`;
-
-    await sendEntryEmbed({
-      userId: user.id,
-      slug,
-      success: false,
-      message: msg,
-    });
-  }
-}
-
-/* =========================
-   SNAPSHOT LOOP (SEM TIMER)
-========================= */
-
-export async function runSnapshotCycle() {
-  console.log("[SNAPSHOT] cycle invoked");
-
-  if (snapshotRunning) {
-    console.log("[SNAPSHOT] already running, skip");
-    return;
-  }
-  snapshotRunning = true;
-
-  const users = getAutoUsers();
-  console.log(`[SNAPSHOT] auto users: ${users.length}`);
-
-  if (!users.length) {
-    snapshotRunning = false;
-    return;
-  }
-
-  let scanKey;
-  try {
-    scanKey = decrypt(users[0].apiKey);
-  } catch {
-    console.log("[SNAPSHOT] scan apiKey decrypt failed");
-    snapshotRunning = false;
-    return;
-  }
-
-  let raffles;
-  try {
-    raffles = await apiGetAllRaffles(scanKey);
-  } catch (e) {
-    console.log("[SNAPSHOT] fetch failed", e?.response?.status, e?.message);
-    snapshotRunning = false;
-    return;
-  }
-
-  const snapshot = [...new Set(raffles.map(r => r.slug).filter(Boolean))];
-  console.log(`[SNAPSHOT] total captured: ${snapshot.length}`);
-
-  await sendSnapshotEmbed(snapshot.length);
-
-  for (const slug of snapshot) {
-    console.log(`[QUEUE] raffle ${slug}`);
-
-    for (const user of users) {
-      await tryEnter(user, slug);
-    }
-
-    await new Promise(r => setTimeout(r, ENTER_DELAY_MS));
-  }
-
-  snapshotRunning = false;
-  setImmediate(runSnapshotCycle);
-}
-
-/* =========================
-   EXTERNAL TRIGGER
-========================= */
-
-export function triggerSnapshot() {
-  if (!snapshotRunning) {
-    console.log("[SNAPSHOT] triggered externally");
-    setImmediate(runSnapshotCycle);
+  } catch (err) {
+    console.error("Webhook sendSnapshotEmbed error:", err.message);
   }
 }
