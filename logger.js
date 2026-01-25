@@ -2,80 +2,97 @@ import axios from "axios";
 
 const ENTRIES_WEBHOOK = process.env.DISCORD_ENTRIES_WEBHOOK;
 
-/* =========================
-   SAFE POST
-========================= */
-async function safePost(payload) {
-  if (!ENTRIES_WEBHOOK) return;
-
-  try {
-    await axios.post(ENTRIES_WEBHOOK, payload, {
-      timeout: 15000,
-      headers: { "Content-Type": "application/json" }
-    });
-  } catch (err) {
-    console.error(
-      "[ENTRIES WEBHOOK ERROR]",
-      err.response?.status,
-      err.message
-    );
-  }
-}
-
-/* =========================
-   ENTRY EMBED
-========================= */
+/**
+ * Envia embed de entrada (success / fail)
+ */
 export async function sendEntryEmbed({
   username,
   userId,
-  avatarUrl,
+  userAvatar,
   raffleName,
   raffleSlug,
-  joinedCount,
-  subscription,
-  success,
-  message
+  giveawaysJoined,
+  success = true,
+  message = "Entry successful"
 }) {
-  await safePost({
+  if (!ENTRIES_WEBHOOK) return;
+
+  await axios.post(ENTRIES_WEBHOOK, {
     username: "CatBot",
-    avatar_url: "https://i.imgur.com/9xZQZ9F.png",
+    avatar_url: "https://i.imgur.com/9xZQZ9F.png", // avatar do bot
     embeds: [
       {
         author: {
-          name: String(username || "CatBot User").slice(0, 256),
-          icon_url: avatarUrl || "https://i.imgur.com/9xZQZ9F.png"
+          name: username,
+          icon_url: userAvatar
         },
+
+        // 🔗 TÍTULO COM LINK CAMUFLADO
         title: success
           ? `You Joined: ${raffleName}`
           : `Entry Failed: ${raffleName}`,
-        url: raffleSlug
-          ? `https://www.alphabot.app/raffles/${raffleSlug}`
-          : undefined,
+
+        // 🔗 LINK REAL PARA A RAFFLE
+        url: `https://www.alphabot.app/${raffleSlug}`,
+
         color: success ? 0x7C3AED : 0xEF4444,
+
+        thumbnail: {
+          url: "https://i.imgur.com/9xZQZ9F.png" // imagem do bot à direita
+        },
+
         fields: [
           {
-            name: "👤 User",
-            value: userId ? `<@${userId}>` : "Unknown",
+            name: "User",
+            value: `<@${userId}>\n@${username}`,
             inline: true
           },
           {
-            name: "🎟️ Giveaways Joined",
-            value: joinedCount != null ? String(joinedCount) : "—",
+            name: "Giveaways Joined",
+            value: String(giveawaysJoined ?? "—"),
             inline: true
           },
           {
-            name: "💎 Subscription",
-            value: subscription || "Standard",
+            name: "Subscription",
+            value: "<@&1464927696403431635>",
             inline: true
           },
           {
             name: success ? "✅ Status" : "❌ Status",
-            value: message || (success ? "Entry successful" : "Entry failed"),
+            value: message,
             inline: false
           }
         ],
+
         footer: {
-          text: "Built by CatBot • AlphaBot Automation"
+          text: `Built by Solus • Hoje às ${new Date().toLocaleTimeString("pt-BR", {
+            hour: "2-digit",
+            minute: "2-digit"
+          })}`
+        },
+
+        timestamp: new Date().toISOString()
+      }
+    ]
+  });
+}
+
+/**
+ * Snapshot inicial (quando captura raffles)
+ */
+export async function sendSnapshotEmbed(total) {
+  if (!ENTRIES_WEBHOOK) return;
+
+  await axios.post(ENTRIES_WEBHOOK, {
+    username: "CatBot",
+    avatar_url: "https://i.imgur.com/9xZQZ9F.png",
+    embeds: [
+      {
+        title: "📸 Snapshot iniciado",
+        description: `Raffles ativas capturadas: **${total}**`,
+        color: 0x3498db,
+        footer: {
+          text: "CatBot • AlphaBot Automation"
         },
         timestamp: new Date().toISOString()
       }
@@ -83,18 +100,54 @@ export async function sendEntryEmbed({
   });
 }
 
-/* =========================
-   SNAPSHOT EMBED
-========================= */
-export async function sendSnapshotEmbed(total) {
-  await safePost({
+/**
+ * Embed especial de WIN
+ */
+export async function sendWinEmbed({
+  username,
+  userId,
+  userAvatar,
+  raffleName,
+  raffleSlug
+}) {
+  if (!ENTRIES_WEBHOOK) return;
+
+  await axios.post(ENTRIES_WEBHOOK, {
     username: "CatBot",
+    avatar_url: "https://i.imgur.com/9xZQZ9F.png",
     embeds: [
       {
-        title: "📸 Snapshot iniciado",
-        description: `Raffles ativas capturadas: **${total}**`,
-        color: 0x3498db,
-        footer: { text: "CatBot v2.0" },
+        author: {
+          name: username,
+          icon_url: userAvatar
+        },
+
+        title: `🏆 WIN: ${raffleName}`,
+        url: `https://www.alphabot.app/${raffleSlug}`,
+
+        color: 0xFACC15,
+
+        thumbnail: {
+          url: "https://i.imgur.com/9xZQZ9F.png"
+        },
+
+        fields: [
+          {
+            name: "Winner",
+            value: `<@${userId}>`,
+            inline: true
+          },
+          {
+            name: "Raffle",
+            value: raffleName,
+            inline: true
+          }
+        ],
+
+        footer: {
+          text: "CatBot • Congratulations!"
+        },
+
         timestamp: new Date().toISOString()
       }
     ]
