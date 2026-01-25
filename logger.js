@@ -1,7 +1,14 @@
+import axios from "axios";
+
+const ENTRIES_WEBHOOK = process.env.DISCORD_ENTRIES_WEBHOOK;
+
+/**
+ * Embed de entrada (sucesso ou falha)
+ */
 export async function sendEntryEmbed({
-  username,          // 👈 username REAL do Discord
+  username,
   userId,
-  userAvatar,        // 👈 avatar REAL do Discord
+  userAvatar,
   raffleName,
   raffleSlug,
   giveawaysJoined,
@@ -10,58 +17,89 @@ export async function sendEntryEmbed({
 }) {
   if (!ENTRIES_WEBHOOK) return;
 
-  await axios.post(ENTRIES_WEBHOOK, {
-    username: "Solus Subscription APP", // nome do app (igual ao exemplo)
-    avatar_url: "https://i.imgur.com/yxvI3zp.png",
+  try {
+    await axios.post(ENTRIES_WEBHOOK, {
+      username: "Solus Subscription APP",
+      avatar_url: "https://i.imgur.com/9xZQZ9F.png",
 
-    embeds: [
-      {
-        // 🔥 CABEÇALHO CORRETO
-        author: {
-          name: username,              // ex: superfeijao
-          icon_url: userAvatar         // avatar real do usuário
-        },
-
-        // 🔗 TÍTULO CLICÁVEL
-        title: `You Joined: ${raffleName}`,
-        url: `https://www.alphabot.app/${raffleSlug}`,
-
-        color: 0x7C3AED,
-
-        // 🧠 LOGO DO BOT À DIREITA
-        thumbnail: {
-          url: "https://i.imgur.com/9xZQZ9F.png"
-        },
-
-        fields: [
-          {
-            name: "User",
-            value: `<@${userId}>`,
-            inline: true
+      embeds: [
+        {
+          author: {
+            name: username,
+            icon_url: userAvatar
           },
-          {
-            name: "Giveaways Joined",
-            value: String(giveawaysJoined ?? "—"),
-            inline: true
-          },
-          {
-            name: "Subscription",
-            value: "<@&1464927696403431635>",
-            inline: true
-          },
-          {
-            name: "✅ Status",
-            value: message,
-            inline: false
-          }
-        ],
 
-        footer: {
-          text: "Built by Solus"
-        },
+          title: `You Joined: ${raffleName}`,
+          url: `https://www.alphabot.app/${raffleSlug}`,
 
-        timestamp: new Date().toISOString()
-      }
-    ]
-  });
+          color: success ? 0x7C3AED : 0xEF4444,
+
+          thumbnail: {
+            url: "https://i.imgur.com/9xZQZ9F.png"
+          },
+
+          fields: [
+            {
+              name: "User",
+              value: `<@${userId}>`,
+              inline: true
+            },
+            {
+              name: "Giveaways Joined",
+              value: String(giveawaysJoined ?? "—"),
+              inline: true
+            },
+            {
+              name: "Subscription",
+              value: "<@&1464927696403431635>",
+              inline: true
+            },
+            {
+              name: success ? "✅ Status" : "❌ Status",
+              value: message,
+              inline: false
+            }
+          ],
+
+          footer: {
+            text: "Built by Solus"
+          },
+
+          timestamp: new Date().toISOString()
+        }
+      ]
+    });
+  } catch (err) {
+    console.error("Webhook sendEntryEmbed error:", err.message);
+  }
+}
+
+/**
+ * Embed de snapshot (quando o scan inicia)
+ */
+export async function sendSnapshotEmbed(totalRaffles) {
+  if (!ENTRIES_WEBHOOK) return;
+
+  try {
+    await axios.post(ENTRIES_WEBHOOK, {
+      username: "Solus Subscription APP",
+      avatar_url: "https://i.imgur.com/9xZQZ9F.png",
+
+      embeds: [
+        {
+          title: "📸 Snapshot iniciado",
+          description: `Raffles capturadas: **${totalRaffles}**`,
+          color: 0x3498DB,
+
+          footer: {
+            text: "CatBot • Snapshot"
+          },
+
+          timestamp: new Date().toISOString()
+        }
+      ]
+    });
+  } catch (err) {
+    console.error("Webhook sendSnapshotEmbed error:", err.message);
+  }
 }
