@@ -70,7 +70,7 @@ export async function sendEntryEmbed({
       embeds: [
         {
           author: {
-            name: username || "Unknown User",
+            name: username || "CATBOT",
             icon_url: userAvatar
           },
 
