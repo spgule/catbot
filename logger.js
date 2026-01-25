@@ -1,14 +1,7 @@
-import axios from "axios";
-
-const ENTRIES_WEBHOOK = process.env.DISCORD_ENTRIES_WEBHOOK;
-
-/**
- * Envia embed de entrada (success / fail)
- */
 export async function sendEntryEmbed({
-  username,
+  username,          // 👈 username REAL do Discord
   userId,
-  userAvatar,
+  userAvatar,        // 👈 avatar REAL do Discord
   raffleName,
   raffleSlug,
   giveawaysJoined,
@@ -18,33 +11,32 @@ export async function sendEntryEmbed({
   if (!ENTRIES_WEBHOOK) return;
 
   await axios.post(ENTRIES_WEBHOOK, {
-    username: "CatBot",
-    avatar_url: "https://i.imgur.com/9xZQZ9F.png", // avatar do bot
+    username: "Solus Subscription APP", // nome do app (igual ao exemplo)
+    avatar_url: "https://i.imgur.com/yxvI3zp.png",
+
     embeds: [
       {
+        // 🔥 CABEÇALHO CORRETO
         author: {
-          name: username,
-          icon_url: userAvatar
+          name: username,              // ex: superfeijao
+          icon_url: userAvatar         // avatar real do usuário
         },
 
-        // 🔗 TÍTULO COM LINK CAMUFLADO
-        title: success
-          ? `You Joined: ${raffleName}`
-          : `Entry Failed: ${raffleName}`,
-
-        // 🔗 LINK REAL PARA A RAFFLE
+        // 🔗 TÍTULO CLICÁVEL
+        title: `You Joined: ${raffleName}`,
         url: `https://www.alphabot.app/${raffleSlug}`,
 
-        color: success ? 0x7C3AED : 0xEF4444,
+        color: 0x7C3AED,
 
+        // 🧠 LOGO DO BOT À DIREITA
         thumbnail: {
-          url: "https://i.imgur.com/9xZQZ9F.png" // imagem do bot à direita
+          url: "https://i.imgur.com/9xZQZ9F.png"
         },
 
         fields: [
           {
             name: "User",
-            value: `<@${userId}>\n@${username}`,
+            value: `<@${userId}>`,
             inline: true
           },
           {
@@ -58,94 +50,14 @@ export async function sendEntryEmbed({
             inline: true
           },
           {
-            name: success ? "✅ Status" : "❌ Status",
+            name: "✅ Status",
             value: message,
             inline: false
           }
         ],
 
         footer: {
-          text: `Built by Solus • Hoje às ${new Date().toLocaleTimeString("pt-BR", {
-            hour: "2-digit",
-            minute: "2-digit"
-          })}`
-        },
-
-        timestamp: new Date().toISOString()
-      }
-    ]
-  });
-}
-
-/**
- * Snapshot inicial (quando captura raffles)
- */
-export async function sendSnapshotEmbed(total) {
-  if (!ENTRIES_WEBHOOK) return;
-
-  await axios.post(ENTRIES_WEBHOOK, {
-    username: "CatBot",
-    avatar_url: "https://i.imgur.com/9xZQZ9F.png",
-    embeds: [
-      {
-        title: "📸 Snapshot iniciado",
-        description: `Raffles ativas capturadas: **${total}**`,
-        color: 0x3498db,
-        footer: {
-          text: "CatBot • AlphaBot Automation"
-        },
-        timestamp: new Date().toISOString()
-      }
-    ]
-  });
-}
-
-/**
- * Embed especial de WIN
- */
-export async function sendWinEmbed({
-  username,
-  userId,
-  userAvatar,
-  raffleName,
-  raffleSlug
-}) {
-  if (!ENTRIES_WEBHOOK) return;
-
-  await axios.post(ENTRIES_WEBHOOK, {
-    username: "CatBot",
-    avatar_url: "https://i.imgur.com/9xZQZ9F.png",
-    embeds: [
-      {
-        author: {
-          name: username,
-          icon_url: userAvatar
-        },
-
-        title: `🏆 WIN: ${raffleName}`,
-        url: `https://www.alphabot.app/${raffleSlug}`,
-
-        color: 0xFACC15,
-
-        thumbnail: {
-          url: "https://i.imgur.com/9xZQZ9F.png"
-        },
-
-        fields: [
-          {
-            name: "Winner",
-            value: `<@${userId}>`,
-            inline: true
-          },
-          {
-            name: "Raffle",
-            value: raffleName,
-            inline: true
-          }
-        ],
-
-        footer: {
-          text: "CatBot • Congratulations!"
+          text: "Built by Solus"
         },
 
         timestamp: new Date().toISOString()
