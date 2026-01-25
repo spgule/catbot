@@ -3,26 +3,32 @@ import axios from "axios";
 const ENTRIES_WEBHOOK = process.env.DISCORD_ENTRIES_WEBHOOK;
 
 /**
+ * Remove o sufixo aleatório do slug e gera nome legível
+ * Ex: gems-x-pocketsol-gtd-dtc-l0ewdp -> Gems X Pocketsol Gtd Dtc
+ */
+function formatRaffleNameFromSlug(slug) {
+  if (!slug || typeof slug !== "string") return "Unknown Raffle";
+
+  const lastDash = slug.lastIndexOf("-");
+  const cleaned = lastDash > 0 ? slug.substring(0, lastDash) : slug;
+
+  return cleaned
+    .split("-")
+    .map(w => (w.toLowerCase() === "x" ? "X" : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");
+}
+
+/**
  * Normaliza erro em categoria legível
  */
 function formatFailure(message = "") {
   const msg = message.toLowerCase();
 
-  if (msg.includes("telegram")) {
-    return "❌ Telegram not connected";
-  }
-  if (msg.includes("discord")) {
-    return "❌ Discord requirement(s)";
-  }
-  if (msg.includes("429") || msg.includes("rate")) {
-    return "⏱️ Rate limited";
-  }
-  if (msg.includes("timeout")) {
-    return "⌛ Request timeout";
-  }
-  if (msg.includes("ended")) {
-    return "🚫 Opportunity ended";
-  }
+  if (msg.includes("telegram")) return "❌ Telegram not connected";
+  if (msg.includes("discord")) return "❌ Discord requirement(s)";
+  if (msg.includes("429") || msg.includes("rate")) return "⏱️ Rate limited";
+  if (msg.includes("timeout")) return "⌛ Request timeout";
+  if (msg.includes("ended")) return "🚫 Opportunity ended";
 
   return `❌ ${message || "Entry failed"}`;
 }
@@ -35,8 +41,8 @@ export async function sendEntryEmbed({
   userId,
   userAvatar,
 
-  raffleName,
-  raffleSlug,
+  raffleName,   // opcional
+  raffleSlug,   // obrigatório para link correto
 
   giveawaysJoined,
   success = true,
@@ -44,9 +50,9 @@ export async function sendEntryEmbed({
 }) {
   if (!ENTRIES_WEBHOOK) return;
 
-  // fallback de segurança
-  const safeRaffleName = raffleName || "Unknown Raffle";
   const safeSlug = raffleSlug || "";
+  const finalRaffleName =
+    raffleName || formatRaffleNameFromSlug(safeSlug);
 
   const raffleUrl = safeSlug
     ? `https://www.alphabot.app/${safeSlug}`
@@ -68,7 +74,7 @@ export async function sendEntryEmbed({
             icon_url: userAvatar
           },
 
-          title: `You Joined: ${safeRaffleName}`,
+          title: `You Joined: ${finalRaffleName}`,
           url: raffleUrl,
 
           color: success ? 0x7C3AED : 0xEF4444,
