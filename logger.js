@@ -2,6 +2,29 @@ import axios from "axios";
 
 const ENTRIES_WEBHOOK = process.env.DISCORD_ENTRIES_WEBHOOK;
 
+/* =========================
+   SAFE POST
+========================= */
+async function safePost(payload) {
+  if (!ENTRIES_WEBHOOK) return;
+
+  try {
+    await axios.post(ENTRIES_WEBHOOK, payload, {
+      timeout: 15000,
+      headers: { "Content-Type": "application/json" }
+    });
+  } catch (err) {
+    console.error(
+      "[ENTRIES WEBHOOK ERROR]",
+      err.response?.status,
+      err.message
+    );
+  }
+}
+
+/* =========================
+   ENTRY EMBED
+========================= */
 export async function sendEntryEmbed({
   username,
   userId,
@@ -13,35 +36,31 @@ export async function sendEntryEmbed({
   success,
   message
 }) {
-  if (!ENTRIES_WEBHOOK) return;
-
-  await axios.post(ENTRIES_WEBHOOK, {
+  await safePost({
     username: "CatBot",
-    avatar_url: "https://i.imgur.com/9xZQZ9F.png", // ícone do bot (opcional)
+    avatar_url: "https://i.imgur.com/9xZQZ9F.png",
     embeds: [
       {
         author: {
-          name: username || "CatBot User",
+          name: String(username || "CatBot User").slice(0, 256),
           icon_url: avatarUrl || "https://i.imgur.com/9xZQZ9F.png"
         },
-
         title: success
           ? `You Joined: ${raffleName}`
           : `Entry Failed: ${raffleName}`,
-
-        url: `https://www.alphabot.app/raffles/${raffleSlug}`,
-
-        color: success ? 0x7C3AED : 0xEF4444, // roxo / vermelho
-
+        url: raffleSlug
+          ? `https://www.alphabot.app/raffles/${raffleSlug}`
+          : undefined,
+        color: success ? 0x7C3AED : 0xEF4444,
         fields: [
           {
             name: "👤 User",
-            value: `<@${userId}>`,
+            value: userId ? `<@${userId}>` : "Unknown",
             inline: true
           },
           {
             name: "🎟️ Giveaways Joined",
-            value: joinedCount ? String(joinedCount) : "—",
+            value: joinedCount != null ? String(joinedCount) : "—",
             inline: true
           },
           {
@@ -55,11 +74,27 @@ export async function sendEntryEmbed({
             inline: false
           }
         ],
-
         footer: {
           text: "Built by CatBot • AlphaBot Automation"
         },
+        timestamp: new Date().toISOString()
+      }
+    ]
+  });
+}
 
+/* =========================
+   SNAPSHOT EMBED
+========================= */
+export async function sendSnapshotEmbed(total) {
+  await safePost({
+    username: "CatBot",
+    embeds: [
+      {
+        title: "📸 Snapshot iniciado",
+        description: `Raffles ativas capturadas: **${total}**`,
+        color: 0x3498db,
+        footer: { text: "CatBot v2.0" },
         timestamp: new Date().toISOString()
       }
     ]
