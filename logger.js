@@ -19,8 +19,8 @@ export async function sendEntryEmbed({
 
   try {
     await axios.post(ENTRIES_WEBHOOK, {
-      username: "Solus Subscription APP",
-      avatar_url: "https://i.imgur.com/9xZQZ9F.png",
+      username: "CATBOT",
+      avatar_url: "https://i.imgur.com/yxvI3zp.png",
 
       embeds: [
         {
