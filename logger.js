@@ -35,7 +35,7 @@ export async function sendEntryEmbed({
           color: success ? 0x7C3AED : 0xEF4444,
 
           thumbnail: {
-            url: "https://i.imgur.com/9xZQZ9F.png"
+            url: "https://i.imgur.com/yxvI3zp.png"
           },
 
           fields: [
@@ -62,7 +62,7 @@ export async function sendEntryEmbed({
           ],
 
           footer: {
-            text: "Built by Solus"
+            text: "Built by CATBOT"
           },
 
           timestamp: new Date().toISOString()
@@ -82,8 +82,8 @@ export async function sendSnapshotEmbed(totalRaffles) {
 
   try {
     await axios.post(ENTRIES_WEBHOOK, {
-      username: "Solus Subscription APP",
-      avatar_url: "https://i.imgur.com/9xZQZ9F.png",
+      username: "CATBOTP",
+      avatar_url: "https://i.imgur.com/yxvI3zp.png",
 
       embeds: [
         {
