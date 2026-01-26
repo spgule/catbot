@@ -80,7 +80,7 @@ export async function sendEntryEmbed({
           color: success ? 0x7C3AED : 0xEF4444,
 
           thumbnail: {
-            url: "https://i.imgur.com/yxvI3zp.png"
+            url: "https://i.imgur.com/9Apykdo.jpeg"
           },
 
           fields: [
